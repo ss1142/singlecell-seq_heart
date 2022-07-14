@@ -1,3 +1,81 @@
-# Scripts used for analysisng scRNA-seq and snRNA-seq data from heart 
+# Scripts used for analysisng scRNA-seq and snRNA-seq data from heart using R
 # Data was first processed using 10x Genomics cellranger count command
+# Plots and .rds files can be saved along the way using relevant scripts (not included in this workflow)
+
+# Load relevant packages 
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(ggplot2)
+ 
+# Read data (10x Genomics cellranger output)
+Sample1.data <- Read10x(data.dir = "../Sample1/outs/filtered_feature_bc_matrix/")
+
+# Check quality control (QC) metrics of data 
+Sample1 <- CreateSeuratObject(counts = Sample1.data, project = "Sample1Analysis", min.cells = 3, min.features = 200)
+Sample1[["percent.mt"]] <- PercentageFeatureSet(Sample1, pattern = "^MT-") 
+
+# Visualise QC metrics
+VlnPlot(Sample1, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3) # Violin plot
+nCount_RNA_vs_percent.mt_plot <- FeatureScatter(Sample1, feature1 = "nCount_RNA", feature2 = "percent.mt") # Scatter plot (counts vs mt percent)
+nCount_RNA_vs_nFeature_RNA_plot <- FeatureScatter(Sample1, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") # Scatter plot (counts vs gene feature)
+
+# Data normalisation using NormalizeData
+Sample1 <- NormalizeData(Sample1) 
+## Alternatively data can be normalised using SCTransform
+
+# Identify highly variable genes
+Sample1 <- FindVariableFeatures(Sample1, selection.method = "vst", nfeatures = 2000)
+top10 <- head(VariableFeatures(Sample1), 10)
+
+# Visualise variable gene feature data 
+VariableFeatures_plot <- VariableFeaturePlot(Sample1)
+VariableFeaturesLabelled_plot <- LabelPoints(plot = VariableFeatures_plot, points = top10, repel = TRUE)
+
+# Scale data
+all.genes <- rownames(Sample1)
+Sample1 <- ScaleData(Sample1, features = all.genes)
+
+# Dimensionality reduction and PCA
+Sample1 <- RunPCA(Sample1, features = VariableFeatures(object = Sample1))
+
+# Assess dimensions  
+VizDimLoadings(Sample1, dims = 1:2, reduction = "pca")
+DimPlot_plot(Sample1, reduction = "pca")
+DimHeatmap_plot(Sample1, dims = 1, cells = 74, balanced = TRUE)
+DimHeatmap_plot(Sample1, dims = 1:15, cells = 74, balanced = TRUE)
+Sample1 <- JackStraw(Sample1, num.replicate = 100)
+Sample1 <- ScoreJackStraw(Sample1, dims = 1:20)
+JackStrawPlot_plot(Sample1, dims = 1:15)
+ElbowPlot_plot(Sample1)
+
+# Visualise clusters  
+Sample1 <- FindNeighbors(Sample1, dims = 1:20)
+Sample1 <- FindClusters(Sample1, resolution = 0.5)
+head(Idents(Sample1), 5)
+Sample1 <- RunUMAP(Sample1, dims = 1:10)
+DimPlot(Sample1, reduction = "umap")
+
+################ Sample integration ##################
+# Uses FindIntegrationAnchors command 
+# Read in multiple files to be combined 
+Sample1 <- readRDS(“R:/File/Path/To/RDS/Sample1_Analysis.rds”)
+Sample2 <- readRDS(“R:/File/Path/To/RDS/Sample2_Analysis.rds”)  
+Sample3 <- readRDS(“R:/File/Path/To/RDS/Sample3_Analysis.rds”)  
+Sample4 <- readRDS(“R:/File/Path/To/RDS/Sample4_Analysis.rds”) 
+
+# Assign samples to individual groups 
+Sample1$group1='001'
+Sample2$group1='002'
+Sample3$group1='003'
+Sample4$group1='004'
+
+# Assign samples to two groups 
+Sample1$group2='Combined1'
+Sample2$group2='Combined1'
+Sample3$group2='Combined2'
+Sample4$group2='Combined2'
+
+
+
 
