@@ -157,21 +157,6 @@ cluster8.markers <- FindMarkers(combined, ident.1 = 8, logfc.threshold = 0.25, t
 cluster9.markers <- FindMarkers(combined, ident.1 = 9, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
 cluster10.markers <- FindMarkers(combined, ident.1 = 10, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
 
-# Rename clusters 
-new.cluster.ids <- c("Cardiomyocytes", "B cells", "T cells", "Art ECs", "Cap_Ven ECs", "ECs",
-    "Adipocytes", "Myeloid cells", "Lymphoid cells")
-names(new.cluster.ids) <- levels(combined)
-combined <- RenameIdents(combined, new.cluster.ids)
-DimPlot(combined, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
-
-# Assess differences in annotated cluster populations between groups 
-## Individual samples (group 1)
-ot_group1 = FetchData(combined, vars = c('ident', 'group1') )
-gplot(ot_group1,aes(x=ident))+geom_bar(aes(fill=group1),stat='count',position='fill')+theme_minimal()+xlab('Cluster')
-## Individual samples (group 2)
-ot_group2 = FetchData(combined, vars = c('ident', 'group2') )
-gplot(ot_group2,aes(x=ident))+geom_bar(aes(fill=group2),stat='count',position='fill')+theme_minimal()+xlab('Cluster')
-
 # Create feature plots of gene expression 
 ## Murine cardiac cell type markers 
 FeaturePlot(combined_samples, features = c("Tnnt2", "Ryr2", "Ttn")) # Cardiomyocyte markers 
@@ -324,6 +309,21 @@ DotPlot(combined, features = c('FCRL1','CD22','FCMR','FCRL5','MS4A1','BTLA','BLK
 DotPlot(combined, features = c('PLPP5','RALGPS2','FGD3','SMC6','ANKRD44','NRROS','MAST3','SMAP2','LIMD2','ARHGAP24','GEN1','CTSS','VAV3','KCNQ5','COTL1','ST6GAL1','LPCAT1','VAV2','DOCK10','CBFA2T3','ITGA','GPR155','BLNK','RAPGEF1','RASA3PIK3R5','MEF2C','ARHGEF1','TOX2','NLRC5','ADAM19','CPPED1','EIF2AK3','SP110','OSBPL10','RCSD1','CMIP','RPS6KA5','FAM53B','SNX29','DGKD','CD47','EZR','RUNX1','KYNU','SCML4','GRB2','DENND5B','IQGAP2','TRAF3','FCHSD2','NCOA3','TBC1D9','KDM4B','SKAP2','FAM69A','EIF4G3','UVRAG','ERGIC1','SWAP70','CEMIP2','DTNBP1','CCDC50','IL4R','DENND4A','PLXNC1','BACH2','MAP3K1','PIP5K1B','FAM117B','SOX5','SPAG16'), cols = c("darkblue", "firebrick"), dot.scale = 8) + RotatedAxis()
 ## Human circulating leucocytes 
 DotPlot(combined, features = c('CD3E','TRAC','IL7R','CD8B','CCR7','FOXP3','TRDC','GNLY','FCGR3A’, ‘SELL’, ‘CD79A’. ‘IGHD’, ‘CD27’, ‘CD36’, ‘LYZ’, ‘WDFY4’, ‘FCER1A’, ‘S100A8’, ‘CD14’, ‘TCF4’, ‘GNG11’), cols = c("blue", "red"), dot.scale = 8) + RotatedAxis() 
+
+# Rename clusters 
+new.cluster.ids <- c("Cardiomyocytes", "B cells", "T cells", "Art ECs", "Cap_Ven ECs", "ECs",
+    "Adipocytes", "Myeloid cells", "Lymphoid cells")
+names(new.cluster.ids) <- levels(combined)
+combined <- RenameIdents(combined, new.cluster.ids)
+DimPlot(combined, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
+
+# Assess differences in annotated cluster populations between groups 
+## Individual samples (group 1)
+ot_group1 = FetchData(combined, vars = c('ident', 'group1') )
+gplot(ot_group1,aes(x=ident))+geom_bar(aes(fill=group1),stat='count',position='fill')+theme_minimal()+xlab('Cluster')
+## Individual samples (group 2)
+ot_group2 = FetchData(combined, vars = c('ident', 'group2') )
+gplot(ot_group2,aes(x=ident))+geom_bar(aes(fill=group2),stat='count',position='fill')+theme_minimal()+xlab('Cluster')
 
 # Create volcano plot of variable genes between allocated groups
 fcdata <- FindMarkers(combined, ident.1 = "Combined1", ident.2 = "Combined2", verbose = FALSE, group.by = 'group2')
