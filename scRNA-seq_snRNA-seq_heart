@@ -116,12 +116,205 @@ cluster9.markers <- FindMarkers(combined, ident.1 = 9, logfc.threshold = 0.25, t
 cluster10.markers <- FindMarkers(combined, ident.1 = 10, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
 
 # Create feature plots of gene expression 
+## Murine cardiac cell type markers 
 FeaturePlot(combined_samples, features = c("Tnnt2", "Ryr2", "Ttn")) # Cardiomyocyte markers 
 FeaturePlot(combined_samples, features = c ("Pdgfra", "Vcan", "Mmp2")) # Fibroblast markers
 FeaturePlot(combined_samples, features = c ("Pecam1", "Vwf", "Tie1")) # Endothelial cell markers
 FeaturePlot(combined, features = c("Tagln", "Myh11", "Acta2")) # Smooth muscle cell markers
 FeaturePlot(combined_samples, features = c("Ptprc")) # Lymphocyte
-FeaturePlot(combined, features = c("Tagln", "Myh11", "Acta2")) # B cell markers
+FeaturePlot(combined, features = c("Cd79a", "Cd79b", "Ly6d")) # B cell markers
+FeaturePlot(combined, features = c("Cd3g", "Lat", "Skap1")) # B cell markers
+## Human cardiac cell type markers 
+FeaturePlot(combined, features = c("TNNT2", "RYR2", "TTN")) # cardiomyocytes
+FeaturePlot(combined, features = c("PDGFRA", "VCAN", "MMP2")) # fibroblasts
+FeaturePlot(combined, features = c("PECAM1", "VWF", "TIE1")) # endothelial cells
+FeaturePlot(combined, features = c("CD3G", "LAT", "SKAP1")) # T cells
+FeaturePlot(combined, features = c("CD79B", "LY6D", "CD79A")) # B cells
+FeaturePlot(combined, features = c("PTPRC")) # Lymphocytes
+FeaturePlot(combined, features = c("TAGLN", "MYH11", "ACTA2")) # SMCs
+FeaturePlot(combined, features = c("CDKN1A", "CDKN2A", "TP53")) # senescent cells
+## Human peripheral blood leucocyte markers
+FeaturePlot(combined_samples, features = c("CD3E", "LCK", "TRAC")) # T cell markers 
+FeaturePlot(combined_samples, features = c("IL7R", "CD4")) # CD4+ T cell markers 
+FeaturePlot(combined_samples, features = c("CD8A", "CD8B", "CCL5")) # CD8+ T cell markers 
+FeaturePlot(combined_samples, features = c("CD8na", "CCR7")) # Non-activated CD8+ T cell markers 
+FeaturePlot(combined_samples, features = c("FOXP3", "CTLA4")) # Regulatory T cell markers  
+FeaturePlot(combined_samples, features = c("TRDC")) # γδ T cell markers
+FeaturePlot(combined_samples, features = c("FCGR3A", "CD14")) # Monocyte markers  
+FeaturePlot(combined_samples, features = c("GNLY", "NKG7", "NCR1")) # NK cell markers
+FeaturePlot(combined_samples, features = c("CD74", "CD79A", “IGH”) # B cell markers 
+FeaturePlot(combined_samples, features = c("CD27", "IGHM") # Naïve B cell markers 
+FeaturePlot(combined_samples, features = c("IGHG", "CD38", “TNFRSF17”) # Plasmablasts 
+FeaturePlot(combined_samples, features = c("WDFY4", "XCR1", “BATF3”) # Myeloid dendritic cells 1
+FeaturePlot(combined_samples, features = c("FCER1A”, "CD1C", “CLEC10A”) # Myeloid dendritic cells 2
+FeaturePlot(combined_samples, features = c("S100A8", "S100A9") # Granulocyte markers 
+FeaturePlot(combined_samples, features = c("CD14”)) # CD14+ Monocytes 
+FeaturePlot(combined_samples, features = c("TCF4”, "TNFRSF21”) # Plasmacytoid dendritic cells
+FeaturePlot(combined_samples, features = c("GNG11", "CLU")) # megakaryocytes
+
+# Create dot plot of gene expression markers 
+## Murine cardiac cell types
+DotPlot(combined, features = c('Ttn','Tnnt2','Vcan','Pdgfra','Pecam1',‘Vwf’, ‘Ptprc’, ‘Cd3g’, ‘Tagln’, ‘Acta2’, ‘Sell’, ‘Myh11’), cols = c(“darkblue”, “firebrick”), dot.scale = 8) + RotatedAxis() 
+## Human cardiac cell types
+DotPlot(combined, features = c('TNNT2',’RYR2’,'TTN','PDGFRA','VCAN','PECAM1',‘VWF’,’TIE1’, ‘TAGLN’, ‘ACTA2’,‘MYH11’,‘PTPRC’), cols = c(“darkblue”, “firebrick”), dot.scale = 8) + RotatedAxis() 
+## Human circulating leucocytes 
+DotPlot(combined, features = c('CD3E','TRAC','IL7R','CD8B','CCR7','FOXP3','TRDC','GNLY','FCGR3A’, ‘SELL’, ‘CD79A’. ‘IGHD’, ‘CD27’, ‘CD36’, ‘LYZ’, ‘WDFY4’, ‘FCER1A’, ‘S100A8’, ‘CD14’, ‘TCF4’, ‘GNG11’), cols = c("blue", "red"), dot.scale = 8) + RotatedAxis() 
+
+# Create volcano plot of variable genes between allocated groups
+fcdata <- FindMarkers(combined, ident.1 = "Combined1", ident.2 = "Combined2", verbose = FALSE, group.by = 'group2')
+EnhancedVolcano: :EnhancedVolcano(fcdata, lab=rownames(fcdata, x=’avg_log2FC’,y= ‘p_val_adj’, subtitle='',
+legendLabSize=1, legendIconSize=0.5, titleLabSize= 10, title='Combined1 vs Combined2,
+legendPosition='below',pCutoff=0.05,FCcutoff = 0.25,col=c("grey30","cornsilk4", "royalblue", "red2"))
+
+################ Processing multiplexed snRNA-seq data ##################
+# Pipelines used from cellranger multi and CITE-seq
+## cellranger multi 
+cd /filepath/to/output/file/directory
+export PATH=/$PWD/cellranger-6.1.1:$PATH
+cellranger multi --id=sampleID_mux \
+--csv=multi-config.csv \
+--localmem=128 \
+--localcores=8
+
+reference,/filepath/to/reference/refdata-gex-GRCh38-2020-A/
+cmo-set,/file/path/to/cmo/file/cmoset1.csv
+expect-cells,10000
+include-introns,true
+
+# Find FASTQ library locations
+Sample001a-AK3737_HK53LDSX2,/file/path/to/fastq/directory/,Multiplexing Capture
+Sample001a-AK3737_HLTGWDSX2,/file/path/to/fastq/directory/,Multiplexing Capture
+Sample001b-AK3738_HK53LDSX2,/file/path/to/fastq/directory/,Multiplexing Capture
+Sample001b-AK3738_HLTGWDSX2,/file/path/to/fastq/directory/,Multiplexing Capture
+Sample001c-AK3739_HK53LDSX2,/file/path/to/fastq/directory/,Gene Expression
+Sample001c-AK3739_HLTGWDSX2,/file/path/to/fastq/directory/,Gene Expression
+Sample001d-AK3740_HK53LDSX2,/file/path/to/fastq/directory/,Gene Expression
+Sample001d-AK3740_HLTGWDSX2,/ file/path/to/fastq/directory/,Gene Expression
+
+# Input patient sample IDs
+sample_id,cmo_ids
+PtSample001,TotalSeq_A0451_anti_nuclearporecomplexproteinshashtag4
+PtSample002,TotalSeq_A0451_anti_nuclearporecomplexproteinshashtag5
+PtSample003,TotalSeq_A0451_anti_nuclearporecomplexproteinshashtag6
+
+# Input unique barcode for multiplexing
+id,name,read,pattern,sequence,feature_type
+TotalSeq_A0451_anti_nuclearporecomplexproteinshashtag4,\
+PtSample001,R2,5P(BC),TGGTGTCATTCTTGA,Multiplexing Capture
+TotalSeq_A0451_anti_nuclearporecomplexproteinshashtag5, \
+PtSample002,R2,5P(BC),ATGATGAACAGCCAG,Multiplexing Capture
+TotalSeq_A0451_anti_nuclearporecomplexproteinshashtag6, \
+PtSample003,R2,5P(BC),CTCGAACGCTTATCG,Multiplexing Capture
+
+## CITE-seq
+CITE-seq-Count --threads 12 -R1 cat001_R1.fastq.gz -R2 cat001_R2.fastq.gz -t antibtags.csv -wl 3M-february-2018.txt -cbf 1 -cbl 16 -umif 17 -umil 28 --sliding-window -cells 10000 -o filename 
+
+################ snATAC-seq data ##################
 
 
+# Load relevant packages  
+library(Signac)
+library(Seurat)
+library(GenomeInfoDb)
+library(EnsDb.Mmusculus.v79)
+library(patchwork)
+library(ggplot2)
+set.seed(1234)
+
+
+# Pre-processing workflow
+## Read data
+counts <- Read10X_h5(filename = "filtered_peak_bc_matrix.h5")
+metadata <- read.csv(
+  file = "singlecell.csv",
+  header = TRUE,
+  row.names = 1
+)  
+
+chrom_assay <- CreateChromatinAssay(
+  counts = countsA005,
+  sep = c(":", "-"),
+  genome = 'mm10',
+  fragments = 'fragments.tsv.gz',
+  min.cells = 1,
+  min.features = 200
+)
+
+Sample1 <- CreateSeuratObject(
+  counts = chrom_assay,
+  assay = "peaks",
+  meta.data = metadata
+)
+
+Sample1
+Sample1[['peaks']]
+granges(Sample1)
+
+# Extract gene annotations from EnsDb
+annotations <- GetGRangesFromEnsDb(ensdb = EnsDb.Mmusculus.v79)
+seqlevelsStyle(annotations) <- 'UCSC' # Change to UCSC style
+
+# Add the gene information to the object 
+genome(annotations) <- "mm10"
+Annotation(Sample1) <- annotations
+
+
+# Computing QC metrics
+Sample1 <- NucleosomeSignal(object = Sample1) # Compute nucleosome signal score per cell
+Sample1 <- TSSEnrichment(object = Sample1, fast = FALSE) # Compute TSS enrichment score per cell
+
+# Add blacklist ratio and fraction of reads in peaks 
+Sample1$pct_reads_in_peaks <- Sample1$peak_region_fragments / Sample1$passed_filters * 100
+Sample1$blacklist_ratio <- Sample1$blacklist_region_fragments / Sample1$peak_region_fragments
+Sample1$high.tss <- ifelse(Sample1$TSS.enrichment > 2, 'High', 'Low')
+TSSPlot(Sample1, group.by = 'high.tss') + NoLegend() # Visualise TSS enrichment scores 
+Sample1$nucleosome_group <- ifelse(Sample1$nucleosome_signal > 4, 'NS > 4', 'NS < 4')
+FragmentHistogram(object = Sample1, group.by = 'nucleosome_group') # Visualise nucleosomal strength score
+
+# Visualise QC metrics
+VlnPlot(
+  object = Sample1,
+  features = c('pct_reads_in_peaks', 'peak_region_fragments',
+               'TSS.enrichment', 'blacklist_ratio', 'nucleosome_signal'),
+  pt.size = 0.1,
+  ncol = 5
+)
+
+# Remove outliers according to QC metrics
+Sample1 <- subset(
+  x = Sample1,
+  subset = peak_region_fragments > 500 &
+    peak_region_fragments < 20000 &
+    pct_reads_in_peaks > 15 &
+    blacklist_ratio < 0.05 &
+    nucleosome_signal < 4 &
+    TSS.enrichment > 2
+)
+
+# Normalisation and linear dimensional reduction 
+Sample1 <- RunTFIDF(Sample1)
+Sample1 <- FindTopFeatures(Sample1, min.cutoff = 'q0')
+Sample1 <- RunSVD(Sample1)
+DepthCor(Sample1)
+
+# Non-linear dimension reduction and clustering 
+Sample1 <- RunUMAP(object = Sample1, reduction = 'lsi', dims = 2:30)
+Sample1 <- FindNeighbors(object = Sample1, reduction = 'lsi', dims = 2:30)
+Sample1 <- FindClusters(object = Sample1, verbose = FALSE, algorithm = 3)
+DimPlot(object = Sample1, label = TRUE) + NoLegend() # Visualise UMAP plot
+# Creating a gene activity matrix
+Sample1[[‘RNA’]]<- CreateAssayObject(counts = gene.activites)
+Sample1 <- NormalizeData(
+ 	object = Sample1,
+	assay = ‘RNA’,
+	normalisation.method = ‘LogNormalize’
+	scale.factor = median(Sample1$nCount_RNA)
+DefaultAssay(Sample1) <- ‘RNA’
+FeaturePlot(
+object = Sample1,
+features = c(‘Insert’, ‘List’, ‘Here’),
+pt.size = 0.1,
+max.cutoff = ‘q95’
+ncol=3
+)
 
