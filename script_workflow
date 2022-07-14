@@ -10,7 +10,13 @@ library(dplyr)
 library(Seurat)
 library(patchwork)
 library(ggplot2)
- 
+library(future)
+library(celldex)
+library(SingleR)
+
+# Modify and packages (required)
+options('future.globals.maxSize'=+Inf) 
+
 # Read data (10x Genomics cellranger output)
 Sample1.data <- Read10x(data.dir = "../Sample1/outs/filtered_feature_bc_matrix/")
 
@@ -143,6 +149,7 @@ colours=c(rep('#a85232',3), # Batch 1
           rep('#9132a8',1), # Batch 6
           rep('#3283a8',1)) # Batch 4
 DimPlot(combined, reduction = "pca",group.by = 'group2', cols = colours)
+
 # Tests for differential expression
 ## Continue for however many clusters there are in dataset 
 cluster0.markers <- FindMarkers(combined, ident.1 = 0, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
@@ -403,7 +410,75 @@ TotalSeq_A0451_anti_nuclearporecomplexproteinshashtag6, \
 PtSample003,R2,5P(BC),CTCGAACGCTTATCG,Multiplexing Capture
 
 ## CITE-seq
-CITE-seq-Count --threads 12 -R1 cat001_R1.fastq.gz -R2 cat001_R2.fastq.gz -t antibtags.csv -wl 3M-february-2018.txt -cbf 1 -cbl 16 -umif 17 -umil 28 --sliding-window -cells 10000 -o filename 
+# Load relevant packages
+library(dplyr)
+library(Seurat)
+library(patchwork)
+
+# Demultiplex samples 
+CITE-seq-Count --threads 12 -R1 cat009_R1.fastq.gz -R2 cat009_R2.fastq.gz -t antibtags.csv -wl 3M-february-2018.txt -cbf 1 -cbl 16 -umif 17 -umil 28 --sliding-window -cells 10000 -o s009_citeseq_count
+
+# Make plots from CITE-seq output
+# Load multiplexed cellranger output 
+obc <- Read10X(data.dir = "R:/file/path/to/cellranger_multi/outs/filtered_feature_bc_matrix")
+data.htos<-Read10X("R:/file/path/to/cellranger_multi/outs/umi_count/", gene.column=1)
+
+# Data processing
+rdx.umis<- obc
+rdx.htos<-data.htos
+head(colnames(data.htos))
+head(colnames(rdx.umis))
+colnames(rdx.umis)=gsub("-1","",colnames(rdx.umis), fixed=T)
+joint.bcs <- intersect(colnames(rdx.umis), colnames(rdx.htos))
+rdx.umis <- rdx.umis[, joint.bcs] ; rdx.htos <- as.matrix(rdx.htos[, joint.bcs])
+rownames(rdx.htos)
+rdx.hashtag <- CreateSeuratObject(counts = rdx.umis)
+rdx.hashtag <- NormalizeData(rdx.hashtag)
+rdx.hashtag <- FindVariableFeatures(rdx.hashtag)
+rdx.hashtag <- ScaleData(rdx.hashtag, features = rownames(rdx.hashtag))
+
+rdx.hashtag[["HTO"]] <- CreateAssayObject(counts = rdx.htos)
+rdx.hashtag <- NormalizeData(rdx.hashtag, assay = "HTO", normalization.method = "CLR")
+rdx.hashtag <- HTODemux(rdx.hashtag, assay = "HTO",  positive.quantile = 0.99,  kfunc = "kmeans")
+
+# Number of doublets
+table(rdx.hashtag$HTO_classification.global)
+table(Idents(rdx.hashtag))
+idents_Demux <- Idents(rdx.hashtag)
+write.csv(table(rdx.hashtag$HTO_classification.global),file='filtbarc_singlet_level.csv')
+write.csv(table(Idents(rdx.hashtag)),file='filtbarc_umisinglet_level_by_sample.csv')
+
+# Maximum enrichment as QC
+Idents(rdx.hashtag) <- "HTO_maxID" 
+pdf("S009_HTO_Enrichment_Peak_filtbarc.pdf", w=11, h=5)
+RidgePlot(rdx.hashtag, assay = "HTO", features = rownames(rdx.hashtag[["HTO"]])[1:2],ncol = 2)
+FeatureScatter(rdx.hashtag, feature1 = "hto_OB131-TTCCTGCCATTACTA", feature2 = "hto_OB134-CCGTACCTCATTGTT")
+Idents(rdx.hashtag) <- "HTO_classification.global"
+VlnPlot(rdx.hashtag, features = "nCount_RNA", pt.size = 0.1, log = TRUE)
+
+rdx.hashtag.subset <- subset(rdx.hashtag, idents = "Negative", invert = TRUE)
+# Calculate a distance matrix using HTO
+hto.dist.mtx <- as.matrix(dist(t(GetAssayData(object = rdx.hashtag.subset, assay = "HTO"))))
+# Calculate tSNE embeddings with a distance matrix
+rdx.hashtag.subset <- RunTSNE(rdx.hashtag.subset, distance.matrix = hto.dist.mtx, perplexity = 100)
+DimPlot(rdx.hashtag.subset)
+# Extract the singlets
+rdx.singlet <- subset(rdx.hashtag, idents = "Singlet")
+# Select the top 1000 most variable features
+rdx.singlet <- FindVariableFeatures(rdx.singlet, selection.method = "mean.var.plot")
+# Scaling RNA data, we only scale the variable features here for efficiency
+rdx.singlet <- ScaleData(rdx.singlet, features = VariableFeatures(rdx.singlet))
+
+# Run PCA
+rdx.singlet <- RunPCA(rdx.singlet, features = VariableFeatures(rdx.singlet))
+# We select the top 10 PCs for clustering and tSNE based on PCElbowPlot
+rdx.singlet <- FindNeighbors(rdx.singlet, reduction = "pca", dims = 1:10)
+rdx.singlet <- FindClusters(rdx.singlet, resolution = 0.6, verbose = FALSE)
+rdx.singlet <- RunTSNE(rdx.singlet, reduction = "pca", dims = 1:10)
+
+# Projecting singlet identities on t-SNE visualisation
+DimPlot(rdx.singlet, group.by = "HTO_classification")
+HTOHeatmap(pbmc.hashtag, assay = "HTO", ncells = 5000)
 
 ################ snATAC-seq data ##################
 
