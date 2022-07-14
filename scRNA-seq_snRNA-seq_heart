@@ -1,7 +1,9 @@
-# Scripts used for analysisng scRNA-seq and snRNA-seq data from heart using R
-# Data was first processed using 10x Genomics cellranger count command
+# Scripts used for analysisng single-cell sequencing data from heart was performed using R 4.0.0
+# Data was first processed using 10x Genomics cellranger, cellranger-atac, or cellranger multi commands
 # Plots and .rds files can be saved along the way using relevant scripts (not included in this workflow)
 # Read README file to find sources of adapted scripts
+
+################# scRNA-seq/snRNA-seq ##################
 
 # Load relevant packages 
 library(dplyr)
@@ -57,7 +59,7 @@ head(Idents(Sample1), 5)
 Sample1 <- RunUMAP(Sample1, dims = 1:10)
 DimPlot(Sample1, reduction = "umap")
 
-################ Sample integration ##################
+################ scRNA-seq/snRNA-seq Sample integration ##################
 # Uses FindIntegrationAnchors command 
 # Read in multiple files to be combined 
 Sample1 <- readRDS(“R:/File/Path/To/RDS/Sample1_Analysis.rds”)
@@ -157,6 +159,26 @@ FeaturePlot(combined_samples, features = c("GNG11", "CLU")) # megakaryocytes
 DotPlot(combined, features = c('Ttn','Tnnt2','Vcan','Pdgfra','Pecam1',‘Vwf’, ‘Ptprc’, ‘Cd3g’, ‘Tagln’, ‘Acta2’, ‘Sell’, ‘Myh11’), cols = c(“darkblue”, “firebrick”), dot.scale = 8) + RotatedAxis() 
 ## Human cardiac cell types
 DotPlot(combined, features = c('TNNT2',’RYR2’,'TTN','PDGFRA','VCAN','PECAM1',‘VWF’,’TIE1’, ‘TAGLN’, ‘ACTA2’,‘MYH11’,‘PTPRC’), cols = c(“darkblue”, “firebrick”), dot.scale = 8) + RotatedAxis() 
+## Human cardiac cell types 2
+c('NPPA','MYL7','MYL4','MYH7','MYL2','FHL2','PLP1','NRXN1','NRXN3','CD8A','IL7R','CD40LG','CD14','C1QA','CD68','VWF','PECAM1','CDH5','GPAM','FASN','LEP','MSLN','WT1','BNC1','DCN','GSN','PDGFRA','RGS5','ABCC9','KCNJ8','MYH11','TAGLN','ACTA2'), cols = c("darkblue", "firebrick"), dot.scale = 8) + RotatedAxis()
+## Human cardiac cell types - arterial endothelial cells 
+DotPlot(combined_QC2_SCT_doublet, features = c('ST6GALNAC3','ALDH1A2','LDB2','PDE4D','NTN1','CGNL1','TMEM132C','EMCN','TMEM108','PECAM1','PLXNA4','PLCXD3','ADGRG6','CEMIP2','ENG','VWF','MYRIP','PKHD1L1','HMCN1','MMP16','TLE1','GMDS','CACNA2D1','NHSL2','GNA14','ITGA9','PLSCR4','RALYL','PCDH7','TMEM44'), cols = c("darkblue", "firebrick"), dot.scale = 8) + RotatedAxis()
+## Human cardiac cell types - arterial endothelial cells 2
+DotPlot(combined_QC2_SCT_doublet, features = c('ST6GAL1','EGFL7','SNTG2','AFAP1L1','LEPR','SELP','FREM2','NPR3','CD9','SESN3','TEK','PGM5','TENM1','PCDH17','KLHL4','SMAD6','CALCRL','TGM2','TIAM2','BMX','PODXL','ZNF804A','RASGEF1B','RALGAPA2','CSGALNACT1','PDE7B','TNFRSF10B','SH3RF1','LYPD6','GULP1'), cols = c("darkblue", "firebrick"), dot.scale = 8) + RotatedAxis()
+## Human cardiac cell types - arterial endothelial cells 3 
+DotPlot(combined_QC2_SCT_doublet, features = c('ERG','ANO2','ADGRL4','SIPA1L1','FLNB','FLT1','CA12','PLVAP','NT5E','F5','WNT9B','ATF7IP2','SMOC1','CRIM1','TSPAN5','NFATC2'), cols = c("darkblue", "firebrick"), dot.scale = 8) + RotatedAxis()
+## Human cardiac cell types - capillary endothelial cells
+DotPlot(combined_QC2_SCT_doublet, features = c('MCF2L','DLGAP2','VWF','CCDC85A','ABLIM3','EGFL7','FLT1','RAMP3','EMCN','CYYR1','EEPD1','ADGRL4','PTPRB','NUAK1','F8','MYRIP','SHANK3','LDB2','ERG','PECAM1','ITGA6','KANK3','SH2D3C','FLI1','PTPRM','MGLL','TEK','RPH3AL','ADAMTS9','RASIP1'), cols = c("darkblue", "firebrick"), dot.scale = 8) + RotatedAxis()
+## Human cardiac cell types - capillary endothelial cells 2
+DotPlot(combined_QC2_SCT_doublet, features = c('IFI27','IGFBP2','M10','ELK3','PPP1R16B','ARHGEF15','LRMDA','ADGRF5','PODXL','ENG','SEC14L1','RAPGEF1','KALRN','ADCY4','ARHGAP31','ARAP3','ITPKB','USHBP1','HECW2','PITPNC1','ZBTB46','ANO2','DOCK9','CDH5','DYSF','AFDN','GRIN2A','CMTM8','FGD5','GALNT18'), cols = c("darkblue", "firebrick"), dot.scale = 8) + RotatedAxis()
+## Human cardiac cell types - capillary endothelial cells 3
+DotPlot(combined_QC2_SCT_doublet, features = c('CXorf36','BACE2','PLEKHG1','MEOX2','CIITA','PDE2A','EPAS1','AFAP1L1','CD82','CARS','MAGI1','JAM2','EPHB4','DOCK6','STOX2','EML1','KIAA1671','MGAT5B','GFOD1','TSHZ2','LIMS2','FCN3','CADPS2','RALGAPA2','CCM2L','PALM','ATF7IP2','RFTN1','PKP4','ITGA1','CD74','SLC2A14'), cols = c("darkblue", "firebrick"), dot.scale = 8) + RotatedAxis()
+## Human cardiac cell types - venous endothelial cells 
+DotPlot(combined_QC2_SCT_doublet, features = c('ARL15','FLT1','CPAMD8','EEPD1','CYYR1','F8','MECOM','PODXL','EMCN','ADGRF5','ABLIM3','DOCK9','PTPRB','M10','PPP1R16B','MCF2L','CCDC85A','ADGRL4','EGFL7','IFI27','RAMP3','EPAS1','DLGAP2','PECAM1','PTPRM','GRIN2A','RAPGEF1','GFOD1','BTNL9','PIK3R3'), cols = c("darkblue", "firebrick"), dot.scale = 8) + RotatedAxis()
+## Human cardiac cell types - venous endothelial cells 2
+DotPlot(combined_QC2_SCT_doublet, features = c('ERG','SHANK3','EFNB2','CMTM8','HMCN1','TEK','EML1','PITPNC1','FCN3','MGAT5B','HECW2','SPOCK2','RUNDC3B','TSC22D1','RFTN1','ARHGAP31','MGLL','FGD5','USHBP1','LPCAT2','ADCY4','VWF','FMO2','ENG','IGFBP2','SEC14L1','KANK3','RPH3AL','ANXA3','AFDN'), cols = c("darkblue", "firebrick"), dot.scale = 8) + RotatedAxis()
+## Human cardiac cell types - venous endothelial cells 3
+DotPlot(combined_QC2_SCT_doublet, features = c('LDB2','TRMT9B','KIAA1671','RGCC','ARHGEF15','ITGA1','ANO2','ARAP3','CIITA','RASGRF2','RASIP1','TACC1','CXorf36','ITGA6','JAM2','NOTCH4','CD82','ID1','SULF2','CDH5','SUSD6','KIF25','ITPKB','CARS','SYNE2','NETO2','ZBTB46','EPB41L1','VEGFC','GPC5','AMD1','SLC6A6','CDK19'), cols = c("darkblue", "firebrick"), dot.scale = 8) + RotatedAxis()
 ## Human circulating leucocytes 
 DotPlot(combined, features = c('CD3E','TRAC','IL7R','CD8B','CCR7','FOXP3','TRDC','GNLY','FCGR3A’, ‘SELL’, ‘CD79A’. ‘IGHD’, ‘CD27’, ‘CD36’, ‘LYZ’, ‘WDFY4’, ‘FCER1A’, ‘S100A8’, ‘CD14’, ‘TCF4’, ‘GNG11’), cols = c("blue", "red"), dot.scale = 8) + RotatedAxis() 
 
@@ -257,7 +279,6 @@ seqlevelsStyle(annotations) <- 'UCSC' # Change to UCSC style
 # Add the gene information to the object 
 genome(annotations) <- "mm10"
 Annotation(Sample1) <- annotations
-
 
 # Computing QC metrics
 Sample1 <- NucleosomeSignal(object = Sample1) # Compute nucleosome signal score per cell
