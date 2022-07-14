@@ -310,12 +310,43 @@ DotPlot(combined, features = c('PLPP5','RALGPS2','FGD3','SMC6','ANKRD44','NRROS'
 ## Human circulating leucocytes 
 DotPlot(combined, features = c('CD3E','TRAC','IL7R','CD8B','CCR7','FOXP3','TRDC','GNLY','FCGR3A’, ‘SELL’, ‘CD79A’. ‘IGHD’, ‘CD27’, ‘CD36’, ‘LYZ’, ‘WDFY4’, ‘FCER1A’, ‘S100A8’, ‘CD14’, ‘TCF4’, ‘GNG11’), cols = c("blue", "red"), dot.scale = 8) + RotatedAxis() 
 
-# Rename clusters 
+# Rename clusters (manually)
 new.cluster.ids <- c("Cardiomyocytes", "B cells", "T cells", "Art ECs", "Cap_Ven ECs", "ECs",
     "Adipocytes", "Myeloid cells", "Lymphoid cells")
 names(new.cluster.ids) <- levels(combined)
 combined <- RenameIdents(combined, new.cluster.ids)
 DimPlot(combined, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
+
+# Automated cluster annotation - dependent on reference used
+## Using reference DB
+ref <- celldex::HumanPrimaryCellAtlasData() 
+unique(ref$label.fine)
+pred <- SingleR(test=combined[['SCT']]@data, ref=ref, labels=ref$label.main,clusters=combined$seurat_clusters)#restrict=genes#
+table(pred$first.labels)[order(table(pred$first.labels))]
+identical(rownames(pred),levels(Idents(combined)))
+boxgrp <- table(Assigned=pred$first.labels, Cluster=rownames(pred))
+pheatmap::pheatmap(log2(boxgrp+10), color=colorRampPalette(c("white", "blue"))(101))
+former.ids<-Idents(combined)
+new.cluster.ids <- pred$first.labels
+names(new.cluster.ids) <- levels(Idents(combined)
+combined <- RenameIdents(combined, new.cluster.ids) #cellassign
+write.csv(data.frame(Cluster=rownames(pred),predicted=pred$first.labels), file='Predicted_cell_identities.csv')
+DimPlot(combined, reduction = "umap", label = TRUE,repel=T)+NoLegend()
+## Using human heart atlas reference (Litvinukova et al 2020)
+## Cluster Annotation with heart atlas reference
+combined2=scuttle::logNormCounts(Seurat::as.SingleCellExperiment(heartdata))
+combined=scuttle::logNormCounts(Seurat::as.SingleCellExperiment(combined,assay='RNA'))
+pred <- SingleR(test=combined, ref=heartdata2, labels=combined2$cell_type, de.method="wilcox",clusters=combined$seurat_clusters) # to use SCT assay replace do test=combined[['SCT']]@data
+table(pred$first.labels)[order(table(pred$first.labels))]
+identical(rownames(pred),levels(Idents(combined)))
+boxgrp <- table(Assigned=pred$first.labels, Cluster=rownames(pred))
+pheatmap::pheatmap(log2(boxgrp+10), color=colorRampPalette(c("white", "blue"))(101))
+former.ids<-Idents(combined)
+new.cluster.ids <- pred$first.labels
+names(new.cluster.ids) <- levels(Idents(combined))
+combined <- RenameIdents(combined, new.cluster.ids) #cellassign
+write.csv(data.frame(Cluster=rownames(pred),predicted=pred$first.labels), file='Predicted_cell_identities_HeartCellAtlasData.csv')
+DimPlot(combined, reduction = "umap", label = TRUE,repel=T)+NoLegend()
 
 # Assess differences in annotated cluster populations between groups 
 ## Individual samples (group 1)
