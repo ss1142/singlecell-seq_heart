@@ -103,8 +103,48 @@ combined_samples <- FindClusters(combined_samples, resolution = 0.5)
 DimPlot(combined_samples, reduction = "umap", split.by = "group1") # Visualise PCA based on group allocation (group 1) 
 DimPlot(combined_samples, reduction = "umap", split.by = "group2") # Visualise PCA based on group allocation (group 2) 
 
+# Use PCA to assess bacth-related differences
+# Change relative to the bacthes prepared 
+## Indivudal samples (group 1)
+DimPlot(combined_QC2_SCT_Analysis, reduction = "pca", split.by = 'group1')
+colours=c(rep('#a85232',3), # Batch 1
+          rep('#9ba832',2), # Batch 2
+          rep('#5032a8',1), # Batch 5
+          rep('#9ba832',1), # Batch 2
+          rep('#5032a8',1), # Batch 5
+          rep('#a83260',1), # Batch 7
+          rep('#32a866',1), # Batch 3
+          rep('#a83260',1), # Batch 7
+          rep('#32a866',1), # Batch 3
+          rep('#5032a8',1), # Batch 5
+          rep('#a83260',1), # Batch 7
+          rep('#9132a8',2), # Batch 6
+          rep('#32a866',1), # Batch 3
+          rep('#3283a8',2), # Batch 4
+          rep('#9132a8',1), # Batch 6
+          rep('#3283a8',1)) # Batch 4
+DimPlot(combined, reduction = "pca",group.by = 'group1', cols = colours)
+## Two groups (group 2)
+DimPlot(combined, reduction = "pca", split.by = 'group2')
+colours=c(rep('#a85232',3), # Batch 1
+          rep('#9ba832',2), # Batch 2
+          rep('#5032a8',1), # Batch 5
+          rep('#9ba832',1), # Batch 2
+          rep('#5032a8',1), # Batch 5
+          rep('#a83260',1), # Batch 7
+          rep('#32a866',1), # Batch 3
+          rep('#a83260',1), # Batch 7
+          rep('#32a866',1), # Batch 3
+          rep('#5032a8',1), # Batch 5
+          rep('#a83260',1), # Batch 7
+          rep('#9132a8',2), # Batch 6
+          rep('#32a866',1), # Batch 3
+          rep('#3283a8',2), # Batch 4
+          rep('#9132a8',1), # Batch 6
+          rep('#3283a8',1)) # Batch 4
+DimPlot(combined, reduction = "pca",group.by = 'group2', cols = colours)
 # Tests for differential expression
-# Continue for however many clusters there are in dataset 
+## Continue for however many clusters there are in dataset 
 cluster0.markers <- FindMarkers(combined, ident.1 = 0, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
 cluster1.markers <- FindMarkers(combined, ident.1 = 1, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
 cluster2.markers <- FindMarkers(combined, ident.1 = 2, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
@@ -116,6 +156,21 @@ cluster7.markers <- FindMarkers(combined, ident.1 = 7, logfc.threshold = 0.25, t
 cluster8.markers <- FindMarkers(combined, ident.1 = 8, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
 cluster9.markers <- FindMarkers(combined, ident.1 = 9, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
 cluster10.markers <- FindMarkers(combined, ident.1 = 10, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+
+# Rename clusters 
+new.cluster.ids <- c("Cardiomyocytes", "B cells", "T cells", "Art ECs", "Cap_Ven ECs", "ECs",
+    "Adipocytes", "Myeloid cells", "Lymphoid cells")
+names(new.cluster.ids) <- levels(combined)
+combined <- RenameIdents(combined, new.cluster.ids)
+DimPlot(combined, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
+
+# Assess differences in annotated cluster populations between groups 
+## Individual samples (group 1)
+ot_group1 = FetchData(combined, vars = c('ident', 'group1') )
+gplot(ot_group1,aes(x=ident))+geom_bar(aes(fill=group1),stat='count',position='fill')+theme_minimal()+xlab('Cluster')
+## Individual samples (group 2)
+ot_group2 = FetchData(combined, vars = c('ident', 'group2') )
+gplot(ot_group2,aes(x=ident))+geom_bar(aes(fill=group2),stat='count',position='fill')+theme_minimal()+xlab('Cluster')
 
 # Create feature plots of gene expression 
 ## Murine cardiac cell type markers 
@@ -135,6 +190,18 @@ FeaturePlot(combined, features = c("CD79B", "LY6D", "CD79A")) # B cells
 FeaturePlot(combined, features = c("PTPRC")) # Lymphocytes
 FeaturePlot(combined, features = c("TAGLN", "MYH11", "ACTA2")) # SMCs
 FeaturePlot(combined, features = c("CDKN1A", "CDKN2A", "TP53")) # senescent cells
+## Human cardiac cell type markers 2
+FeaturePlot(combined_QC2_SCT_doublet, features = c("NPPA", "MYL7", "MYL4")) # atrial cardiomyocytes
+FeaturePlot(combined_QC2_SCT_doublet, features = c("DCN", "GSN", "PDGFRA")) # fibroblasts
+FeaturePlot(combined_QC2_SCT_doublet, features = c("PECAM1", "VWF", "CD85")) # endothelial cells
+FeaturePlot(combined_QC2_SCT_doublet, features = c("CD14", "C1QA", "CD68")) # myeloid cells
+FeaturePlot(combined_QC2_SCT_doublet, features = c("CD8A", "IL7R", "CD40LG")) # lymphoid cells
+FeaturePlot(combined_QC2_SCT_doublet, features = c("NRXN1", "NRXN3","PLP1")) # neuronal
+FeaturePlot(combined_QC2_SCT_doublet, features = c("TAGLN", "MYH11", "ACTA2")) # SMCs
+FeaturePlot(combined_QC2_SCT_doublet, features = c("GPAM", "FASN", "LEP")) # adipocytes
+FeaturePlot(combined_QC2_SCT_doublet, features = c("MSLN", "WT1", "BNC1")) # mesothelial_cells
+FeaturePlot(combined_QC2_SCT_doublet, features = c("RGS5", "ABCC9", "KCNJ8")) # pericytes
+FeaturePlot(combined_QC2_SCT_doublet, features = c("MYH7", "MYL2", "FHL2")) # ventricular cardiomyocytes
 ## Human peripheral blood leucocyte markers
 FeaturePlot(combined_samples, features = c("CD3E", "LCK", "TRAC")) # T cell markers 
 FeaturePlot(combined_samples, features = c("IL7R", "CD4")) # CD4+ T cell markers 
