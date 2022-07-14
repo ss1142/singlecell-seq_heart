@@ -1,6 +1,7 @@
 # Scripts used for analysisng scRNA-seq and snRNA-seq data from heart using R
 # Data was first processed using 10x Genomics cellranger count command
 # Plots and .rds files can be saved along the way using relevant scripts (not included in this workflow)
+# Read README file to find sources of adapted scripts
 
 # Load relevant packages 
 library(dplyr)
@@ -64,6 +65,16 @@ Sample2 <- readRDS(“R:/File/Path/To/RDS/Sample2_Analysis.rds”)
 Sample3 <- readRDS(“R:/File/Path/To/RDS/Sample3_Analysis.rds”)  
 Sample4 <- readRDS(“R:/File/Path/To/RDS/Sample4_Analysis.rds”) 
 
+# If there are issues with loading multiple samples into R, use DietSeurat and ScaleData after each sample is loaded as shown below 
+Sample1=DietSeurat(Sample1)
+Sample1=ScaleData(Sample1)
+Sample2=DietSeurat(Sample2)
+Sample2=ScaleData(Sample2)
+Sample3=DietSeurat(Sample3)
+Sample3=ScaleData(Sample3)
+Sample4=DietSeurat(Sample4)
+Sample4=ScaleData(Sample4)
+
 # Assign samples to individual groups 
 Sample1$group1='001'
 Sample2$group1='002'
@@ -76,6 +87,41 @@ Sample2$group2='Combined1'
 Sample3$group2='Combined2'
 Sample4$group2='Combined2'
 
+# Combine samples together
+anchors <- FindIntegrationAnchors(object.list = list(Sample1,Sample2,Sample3,Sample4), dims = 1:20)
+combined_samples <- IntegrateData(anchorset = anchors, dims = 1:20)
+DefaultAssay(combined_samples) <- "integrated"
+
+# Re-run dimensionality reduction and clustering on integrated file 
+combined_samples <- ScaleData(combined_samples, verbose = FALSE)
+combined_samples <- RunPCA(combined_samples, npcs = 30, verbose = FALSE)
+combined_samples <- RunUMAP(combined_samples, reduction = "pca", dims = 1:20)
+combined_samples <- FindNeighbors(combined_samples, reduction = "pca", dims = 1:20)
+combined_samples <- FindClusters(combined_samples, resolution = 0.5)
+DimPlot(combined_samples, reduction = "umap", split.by = "group1") # Visualise PCA based on group allocation (group 1) 
+DimPlot(combined_samples, reduction = "umap", split.by = "group2") # Visualise PCA based on group allocation (group 2) 
+
+# Tests for differential expression
+# Continue for however many clusters there are in dataset 
+cluster0.markers <- FindMarkers(combined, ident.1 = 0, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+cluster1.markers <- FindMarkers(combined, ident.1 = 1, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+cluster2.markers <- FindMarkers(combined, ident.1 = 2, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+cluster3.markers <- FindMarkers(combined, ident.1 = 3, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+cluster4.markers <- FindMarkers(combined, ident.1 = 4, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+cluster5.markers <- FindMarkers(combined, ident.1 = 5, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+cluster6.markers <- FindMarkers(combined, ident.1 = 6, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+cluster7.markers <- FindMarkers(combined, ident.1 = 7, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+cluster8.markers <- FindMarkers(combined, ident.1 = 8, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+cluster9.markers <- FindMarkers(combined, ident.1 = 9, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+cluster10.markers <- FindMarkers(combined, ident.1 = 10, logfc.threshold = 0.25, test.use = "roc", only.pos = TRUE)
+
+# Create feature plots of gene expression 
+FeaturePlot(combined_samples, features = c("Tnnt2", "Ryr2", "Ttn")) # Cardiomyocyte markers 
+FeaturePlot(combined_samples, features = c ("Pdgfra", "Vcan", "Mmp2")) # Fibroblast markers
+FeaturePlot(combined_samples, features = c ("Pecam1", "Vwf", "Tie1")) # Endothelial cell markers
+FeaturePlot(combined, features = c("Tagln", "Myh11", "Acta2")) # Smooth muscle cell markers
+FeaturePlot(combined_samples, features = c("Ptprc")) # Lymphocyte
+FeaturePlot(combined, features = c("Tagln", "Myh11", "Acta2")) # B cell markers
 
 
 
