@@ -13,6 +13,17 @@ library(ggplot2)
 library(future)
 library(celldex)
 library(SingleR)
+library(sctransform)
+library(SCENIC)
+library(AUCell)
+library(RcisTarget)
+library(KernSmooth)
+library(data.table)
+library(grid)
+library(ComplexHeatmap)
+library(doRNG)
+library(foreach)
+library(parallel)
 
 # Modify and packages (required)
 options('future.globals.maxSize'=+Inf) 
@@ -29,9 +40,21 @@ VlnPlot(Sample1, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol 
 nCount_RNA_vs_percent.mt_plot <- FeatureScatter(Sample1, feature1 = "nCount_RNA", feature2 = "percent.mt") # Scatter plot (counts vs mt percent)
 nCount_RNA_vs_nFeature_RNA_plot <- FeatureScatter(Sample1, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") # Scatter plot (counts vs gene feature)
 
+# Removing doublets 
+params=find.pK(summarizeSweep(paramSweep_v3(Sample1,sct=TRUE),GT=F))
+doubletest=round((round(0.01*nrow(Sample1@meta.data)))*(1-(modelHomotypic(Sample1@meta.data$seurat_clusters))))
+pK=as.numeric(as.character(params$pK));BCmetric=params$BCmetric;peak = pK[which(BCmetric %in% max(BCmetric))]
+plot(x = pK, y = BCmetric, pch = 16,type="b",col = "#41b6c4",lty=1,cex=0.8)
+abline(v=peak,lwd=2,col='brown',lty=2);text(peak,max(BCmetric),as.character(peak),pos = 4,col = "red")
+Sample1 <- doubletFinder_v3(Sample1, pK = peak, nExp=doubletest,reuse.pANN = FALSE, sct = T, PCs=1:10)
+nm=paste0('DF.classifications_','0.25','_',peak,'_',doubletest); nm
+Sample1<- subset(Sample1, DF.classifications_0.25_0.06_3 !='Doublet')
+Sample1=DietSeurat(Sample1)
+
 # Data normalisation using NormalizeData
 Sample1 <- NormalizeData(Sample1) 
 ## Alternatively data can be normalised using SCTransform
+Sample1 <- SCTransform(Sample1, verbose = FALSE)
 
 # Identify highly variable genes
 Sample1 <- FindVariableFeatures(Sample1, selection.method = "vst", nfeatures = 2000)
@@ -340,10 +363,17 @@ combined <- RenameIdents(combined, new.cluster.ids) #cellassign
 write.csv(data.frame(Cluster=rownames(pred),predicted=pred$first.labels), file='Predicted_cell_identities.csv')
 DimPlot(combined, reduction = "umap", label = TRUE,repel=T)+NoLegend()
 ## Using human heart atlas reference (Litvinukova et al 2020)
-## Cluster Annotation with heart atlas reference
-combined2=scuttle::logNormCounts(Seurat::as.SingleCellExperiment(heartdata))
-combined=scuttle::logNormCounts(Seurat::as.SingleCellExperiment(combined,assay='RNA'))
+# Cluster Annotation with heart atlas reference using SingleR
+download.file('https://cellgeni.cog.sanger.ac.uk/heartcellatlas/data/global_raw.h5ad',destfile = 'heartcellatlas_raw_matrices.h5ad')
+SeuratDisk::Convert("~/../Downloads/global_raw.h5ad", dest = "h5seurat",overwrite=T)
+heartdata =SeuratDisk::LoadH5Seurat("~/../Downloads/global_raw.h5seurat")
+save(heartdata,file='nature_heartdata_Seuratready.rds')
+load('nature_heartdata_Seuratready.rds')
+combined<- readRDS(file = "file/path/to/rds.rds")
+heartdata2=scuttle::logNormCounts(Seurat::as.SingleCellExperiment(heartdata))
+combined2=scuttle::logNormCounts(Seurat::as.SingleCellExperiment(combined,assay='RNA'))
 pred <- SingleR(test=combined, ref=heartdata2, labels=combined2$cell_type, de.method="wilcox",clusters=combined$seurat_clusters) # to use SCT assay replace do test=combined[['SCT']]@data
+test=combined[['SCT']]@data
 table(pred$first.labels)[order(table(pred$first.labels))]
 identical(rownames(pred),levels(Idents(combined)))
 boxgrp <- table(Assigned=pred$first.labels, Cluster=rownames(pred))
@@ -368,6 +398,184 @@ fcdata <- FindMarkers(combined, ident.1 = "Combined1", ident.2 = "Combined2", ve
 EnhancedVolcano: :EnhancedVolcano(fcdata, lab=rownames(fcdata, x=’avg_log2FC’,y= ‘p_val_adj’, subtitle='',
 legendLabSize=1, legendIconSize=0.5, titleLabSize= 10, title='Combined1 vs Combined2,
 legendPosition='below',pCutoff=0.05,FCcutoff = 0.25,col=c("grey30","cornsilk4", "royalblue", "red2"))
+
+# Pathway analysis using metascape 
+## Upregulated genes
+combined<- readRDS(file = "file/path/to/rds.rds")
+clust=levels(Idents(combined))
+clust<-gsub(' |/','',clust)
+clust<-clust[-c(10)]
+newlist=list()
+newplots=list()
+newlist=list(); 
+  for (i in 1:length(clust)){
+    unzip(paste0('file/path/to/Metascape/output_',clust[[i]],'_Upreg.zip'),exdir=paste0('destination/file/path/of/Metascape/output_',clust[[i]],'_Upreg'),overwrite=T)
+    file=read.csv(file=paste0('file/path/to/Metascape/output/csv_',clust[[i]],'_Upreg/Enrichment_GO/_FINAL_GO.csv'))
+    file2=file[grepl('GO',file$Category),]
+    file2=file2[!duplicated(file2$GROUP_ID),]
+    file2$cluster=paste0('Clust',clust[[i]])
+    dt=file2[,c('Log.q.value.','cluster','X.GeneInGOAndHitList','Description','GO')]
+    dt$log_qval = -(dt$Log.q.value.);dt=dt[which(dt$log_qval>(-log(0.05))),]
+    dt$names=dt$Description
+    dt$Gene_numbers=dt$X.GeneInGOAndHitList
+    library(ggplot2)
+    newplots[[i]]<-ggplot(dt, aes(y=Gene_numbers,x=reorder(substr(names,1,60),log_qval),fill=log_qval))+geom_bar(stat='identity')+coord_flip()+
+      labs(y='',x='Pathway')+scale_fill_gradient(low='orange',high='orange4',guide='colourbar')+theme_minimal()
+    g=ggplot(dt, aes(y=Gene_numbers,x=reorder(substr(names,1,60),log_qval),fill=log_qval))+geom_bar(stat='identity')+coord_flip()+
+      labs(y='Gene number',x='Pathway')+scale_fill_gradient(low='orange',high='orange4',guide='colourbar')+theme_minimal()
+## Downregulated genes 
+combined<- readRDS(file = "file/path/to/rds.rds")
+clust=levels(Idents(combined))
+clust<-gsub(' |/','',clust)
+clust<-clust[-c(10)]
+newlist=list()
+newplots=list()
+newlist=list(); 
+  for (i in 1:length(clust)){
+    unzip(paste0('file/path/to/Metascape/output_',clust[[i]],'_Downreg.zip'),exdir=paste0('destination/file/path/of/Metascape/output_',clust[[i]],'_Downreg'),overwrite=T)
+    file=read.csv(file=paste0('file/path/to/Metascape/output/csv_',clust[[i]],'_Downreg/Enrichment_GO/_FINAL_GO.csv'))
+    file2=file[grepl('GO',file$Category),]
+    file2=file2[!duplicated(file2$GROUP_ID),]
+    file2$cluster=paste0('Clust',clust[[i]])
+    dt=file2[,c('Log.q.value.','cluster','X.GeneInGOAndHitList','Description','GO')]
+    dt$log_qval = -(dt$Log.q.value.);dt=dt[which(dt$log_qval>(-log(0.05))),]
+    dt$names=dt$Description
+    dt$Gene_numbers=dt$X.GeneInGOAndHitList
+    library(ggplot2)
+    newplotsdown[[i]]<-ggplot(dt, aes(y=Gene_numbers,x=reorder(substr(names,1,60),log_qval),fill=log_qval))+geom_bar(stat='identity')+coord_flip()+
+    labs(y='',x=unique(dt$cluster))+scale_fill_gradient(low='cadetblue1',high='cadetblue4',guide='colourbar')+theme_minimal()
+  g=ggplot(dt, aes(y=Gene_numbers,x=reorder(substr(names,1,60),log_qval),fill=log_qval))+geom_bar(stat='identity')+coord_flip()+
+    labs(y='Gene number',x='Pathway')+scale_fill_gradient(low='cadetblue1',high='cadetblue4',guide='colourbar')+theme_minimal()
+for (i in 1:length(clust)){
+  geneannot<- readxl::read_excel(paste0('R:/CardiacSurgeryRes/ss1142/QC2/QC2_SCT_doublet/xtract/Metascape_',clust[[i]],'_Upreg/metascape_result.xlsx'),sheet='Annotation')
+  colnames(geneannot)[1]='gene'; geneannot=geneannot[,-c(3:15)]#;geneannot=geneannot[,grepl('GO',colnames(geneannot))]
+  fg=geneannot[,-c(1:2)]
+  lead=cbind.data.frame(gene=geneannot[,1],frequency_in_pathway=rowSums(apply(fg,2, function(x) as.numeric(as.character(x)))))
+  lead=lead[order(lead$frequency_in_pathway),]
+  datannot<- read.csv(file=paste0('R:/CardiacSurgeryRes/ss1142/QC2/QC2_SCT_doublet/Combined_OBCARD_QC2_SCT_Analysis_doublet_volcano_clust_annotated',clust2[[i]],'_testrna.csv'))
+  datannot$gene=datannot$X
+  #fg[fg<1]->'NA'
+  pathwaymat=merge(datannot,geneannot,by='gene')
+  write.csv(pathwaymat, file=paste0('R:/CardiacSurgeryRes/ss1142/QC2/QC2_SCT_doublet/xtract/upregpathwaymat_',clust[[i]],'.csv'))
+  write.csv(lead, file=paste0('R:/CardiacSurgeryRes/ss1142/QC2/QC2_SCT_doublet/xtract/leadgenes_',clust[[i]],'.csv'))
+}
+## gene by pathway matrices - upregulated 
+for (i in 1:length(clust)){
+  geneannot<- readxl::read_excel(paste0('file/path/to/Metascape_',clust[[i]],'_Upreg/metascape_result.xlsx'),sheet='Annotation')
+  colnames(geneannot)[1]='gene'; geneannot=geneannot[,-c(3:15)]#;geneannot=geneannot[,grepl('GO',colnames(geneannot))]
+  fg=geneannot[,-c(1:2)]
+  lead=cbind.data.frame(gene=geneannot[,1],frequency_in_pathway=rowSums(apply(fg,2, function(x) as.numeric(as.character(x)))))
+  lead=lead[order(lead$frequency_in_pathway),]
+  datannot<- read.csv(file=paste0('file/path/to/directory',clust2[[i]],'_testrna.csv'))
+  datannot$gene=datannot$X
+  #fg[fg<1]->'NA'
+  pathwaymat=merge(datannot,geneannot,by='gene')
+  write.csv(pathwaymat, file=paste0('file/path/to/directory/upregpathwaymat_',clust[[i]],'.csv'))
+  write.csv(lead, file=paste0('file/path/to/directory/leadgenes_',clust[[i]],'.csv'))
+}
+## gen by pathway matrices - downregulated 
+for (i in 1:length(clust)){
+  geneannot<- readxl::read_excel(paste0('file/path/to/Metascape_',clust[[i]],'_Downreg/metascape_result.xlsx'),sheet='Annotation')
+  colnames(geneannot)[1]='gene'; geneannot=geneannot[,-c(3:15)]#;geneannot=geneannot[,grepl('GO',colnames(geneannot))]
+  fg=geneannot[,-c(1:2)]
+  lead=cbind.data.frame(gene=geneannot[,1],frequency_in_pathway=rowSums(apply(fg,2, function(x) as.numeric(as.character(x)))))
+  lead=lead[order(lead$frequency_in_pathway),]
+  datannot<- read.csv(file=paste0('file/path/to/directory',clust[[i]],'_testrna.csv'))
+  datannot$gene=datannot$X
+  #  fg[fg<1]->'NA'
+  pathwaymat=merge(datannot,geneannot,by='gene')
+  write.csv(pathwaymat, file=paste0('file/path/to/directory/downregpathwaymat_',clust[[i]],'.csv'))
+  write.csv(lead, file=paste0('file/path/to/directory/downregleadgenes_',clust[[i]],'.csv'))
+}
+
+# SCENIC TF regulatory network analysis 
+scenicOptions <- initializeScenic(org="hgnc", dbDir="cistargets",dbs=defaultDbNames[['hgnc']],nCores=1,datasetTitle='celltype_Sample1' )
+scenicOptions@inputDatasetInfo$cellInfo <- "int/cellInfo.rds"
+scenicOptions@inputDatasetInfo$colVar <- "int/colVars.rds"
+scenicOptions@settings$dbs <- c("hg19-10kb"="hg19-tss-centered-10kb-7species.mc9nr.feather",
+                                "hg19-ups.5kb"="hg19-500bp-upstream-7species.mc9nr.feather") # First reference gives a quicker run 
+scenicOptions@settings$db_mcVersion <- "v9"
+saveRDS(scenicOptions, file="int/scenicOptions.rds") 
+exprMat<-readRDS('int/exprMat.Rds')
+scenicOptions<-readRDS('int/scenicoptions.Rds')
+## GENIE
+genesKept <- geneFiltering(exprMat, scenicOptions)
+exprMat_filtered <- exprMat[genesKept, ]
+runCorrelation(exprMat_filtered, scenicOptions)
+exprMat_filtered_log <- exprMat_filtered log2(exprMat_filtered+1) # input data was normalised 
+set.seed(123)
+runGenie3(exprMat_filtered_log, scenicOptions)
+## Regulon from GENIE
+exprMat_log <- exprMat#log2(exprMat+1) # input data was normalised 
+scenicOptions <- runSCENIC_1_coexNetwork2modules(scenicOptions)
+scenicOptions <- runSCENIC_2_createRegulons(scenicOptions) 
+scenicOptions <- runSCENIC_3_scoreCells(scenicOptions, exprMat_log)
+imat<-readRDS('int/2.6_regulons_asIncidMat.Rds') # to use adjacency matrix instead,set 1 part only in runGenie and use int/GENIE3_weightMatrix.rds here
+imat2g<- igraph::graph_from_incidence_matrix(imat,weighted = T,multiple = T)
+igraph::write_graph(imat2g, file='file/path/to/directory/celltypeonly_.graphml', format = 'graphml')
+rd=readRDS('int/2.5_regulonTargetsInfo.Rds')
+write.csv(rd, file='file/path/to/directory/celltype_TargetsInfo.csv')
+rd=rd[rd$highConfAnnot==TRUE,]
+write.csv(rd, file='file/path/to/directory/celltype_TargetsInfo_HC.csv')
+
+# Specific interactions between significantly different secreted immune cell proteins (unadjusted p) to cardiomyocyte/fibroblasts (unadjusted) 
+myeloi<-read.csv('file/path/to/Myeloid Cells_testrna.csv')
+lymphoi<-read.csv('file/path/to/Lymphoid Cells_testrna.csv')
+cm=lymphoi ;cm=cm[which((cm$p_val<0.05) & abs(cm$avg_log2FC)>0.25 & (cm$pct.1 >= 0.1 | cm$pct.2>=0.1)),];cm$source='lymphoid';
+cm2=myeloi ;cm2=cm2[which((cm2$p_val<0.05) & abs(cm2$avg_log2FC)>0.25 & (cm2$pct.1 >= 0.1 | cm2$pct.2>=0.1)),]; cm2$source='myeloid'
+rb<-rbind(cm,cm2);write.csv(rb, file='file/path/to/directory/lympho_myeloid.csv')
+#search list in protein_class:Predicted secreted proteins from hpa
+ppts<-read.delim('file/path/to/protein_class_Predicted.tsv')
+rb2=ppts[ppts$Gene %in% rb$X,];rb3=rb[rb$X %in% ppts$Gene,]
+rb3$source=ifelse(duplicated(rb3$X),'lymphoid & myeloid',rb3$source)
+write.csv(rb3, file='file/path/to/directory/lympho_myeloid_n_secreted.csv')
+s=read.csv(file='file/path/to/directory/s.csv',head=F)$V1 # add the genes in complexes to the tail end
+xps<-read.delim('file/path/to/directory/Xpressed.tsv')#xpressed from hpa heart
+inhpa<- s[s %in% xps$Gene | s%in% xps$Gene.synonym]
+write.csv(inhpa, file='file/path/to/directory/sinhpa.csv')
+s_inter<-read.delim('file/path/to/sinhpa_interactor_physical_pathway_res60att20.txt') # add close interactors to list
+cardio<-read.csv('file/path/to/CMs_testrna.csv')
+cardio=cardio[which((cardio$p_val<0.05)  & (cardio$pct.1 >= 0.1 | cardio$pct.2>=0.1)),] ; cardio$celltype='cardio'
+fibros<-read.csv('file/path/to/FBs_testrna.csv')
+fibros=fibros[which((fibros$p_val<0.05) & (fibros$pct.1 >= 0.1 | fibros$pct.2>=0.1)),]; fibros$celltype='fibros'
+target=rbind(cardio,fibros); target$celltype=ifelse(duplicated(target$X),'cardio_n_fibros',target$celltype)
+write.csv(target,file='file/path/to/cardio_fibros.csv')
+target=read.csv(file='file/path/to/cardio_fibros.csv')
+target=target[target$X %in% s_inter$Symbol,]
+colnames(target)<-paste0('.targ',colnames(target))
+write.csv(target, file='file/path/to/lympho_myeloid_n_secreted_n_cphone_ligand_receptor_n_hpaheart_interactor_n_cardiomy_fibro.csv')
+## Export node file to Cytoscape
+unzip(paste0('file/path/to/Metascape_genes_in_cardio_fibro_withinSpecificInteractions.zip'),exdir=paste0('R:/CardiacSurgeryRes/ss1142/QC2/QC2_SCT_doublet/interaction_results/in_network_pathway'))
+file=read.csv(file='in_network_pathway/Enrichment_GO/_FINAL_GO.csv')
+ file2=file[grepl('GO',file$Category),]
+ file2=file2[!duplicated(file2$GROUP_ID),]
+ file2$cluster=paste0('Clust','in_network')
+ dt=file2[,c('Log.q.value.','cluster','X.GeneInGOAndHitList','Description','GO')]
+ dt$log_qval = -(dt$Log.q.value.);dt=dt[which(dt$log_qval>(-log(0.05))),]
+ dt$names=dt$Description
+ dt$Gene_numbers=dt$X.GeneInGOAndHitList
+ library(ggplot2)
+ g=ggplot(dt, aes(y=Gene_numbers,x=reorder(substr(names,1,60),log_qval),fill=log_qval))+geom_bar(stat='identity')+coord_flip()+
+     labs(y='Gene number',x='Pathway')+scale_fill_gradient(low='orange',high='orange4',guide='colourbar')+theme_minimal()
+ pdf(paste0('group_summary_cardio_in_network','.pdf'),w=8,h=3.5);
+ print(g);  dev.off()
+ tiff(paste0('group_summary_cardio_fib_in_network','.tif'),w=8,h=3.5, res=300,units='in',compression = 'lzw');
+ print(g);  dev.off()
+ 
+ # Statistical analysis of overall cell communications 
+rm(list=ls());library(Seurat);library(Matrix)
+comb <- readRDS(file = "file/path/to/rds.rds");
+so=subset(comb, morbidity=="Multimorbid");
+nead=WhichCells(so,idents=c("celltype1","celltype2"));
+so=so[,!colnames(so)%in% nead];so$cell_type=Idents(so);
+writeMM(so@assays$SCT@data, file = 'mtx/matrix.mtx');
+write(x = rownames(so@assays$SCT@data), file = "mtx/features.tsv");
+write(x = colnames(so@assays$SCT@data), file = "mtx/barcodes.tsv");
+so@meta.data$Cell = rownames(so@meta.data);
+df = so@meta.data[, c('Cell', 'cell_type')];
+write.table(df, file ='meta.tsv', sep = '\t', quote = F, row.names = F)
+conda activate cpdb && export R_HOME=$HOME/conda/envs/cpdb/lib/R ##IF cpdb is the python environment
+cellphonedb method statistical_analysis meta.tsv mtx --counts-data hgnc_symbol && cellphonedb plot dot_plot  && cellphonedb plot heatmap_plot meta.tsv
 
 ################ Processing multiplexed snRNA-seq data ##################
 # Pipelines used from cellranger multi and CITE-seq
